@@ -12,6 +12,8 @@ const hits = [
   { objectID: "2", title: "React" },
 ];
 
+const compare = (url, url2) => new RegExp(`${url}/*`).test(url2);
+
 describe("SomeComponent", () => {
   it("Render SomeComponent", () => {
     render(<SomeComponent />);
@@ -34,16 +36,26 @@ describe("App", () => {
   });
 
   it("fetches news from an API", async () => {
-    axios.get.mockImplementationOnce(() => Promise.resolve({ data: { hits } }));
+    const URL = "hn.algolia.com/api/v1/search";
+    axios.get.mockImplementationOnce((url) => {
+      switch (true) {
+        case compare(URL, url):
+          return Promise.resolve({data: { hits }});
+        case compare("google.com", url):
+          return Promise.resolve({data: { hits }});
+        default:
+          return Promise.reject();
+      }
+    });
     render(<App />);
     userEvent.click(screen.queryByText("Fetch News"));
     const items = await screen.findAllByRole("listitem");
     expect(items).toHaveLength(2);
     // Additional
     expect(axios.get).toHaveBeenCalledTimes(1);
-    expect(axios.get).toHaveBeenCalledWith(
-      "https://hn.algolia.com/api/v1/search?query=React"
-    );
+    // expect(axios.get).toHaveBeenCalledWith(
+    //   URL
+    // );
   });
 
   it("fetches news from an API and reject", async () => {
@@ -88,9 +100,10 @@ describe("App", () => {
     expect(screen.queryByRole('textbox')).toBeRequired();
     expect(screen.queryByRole('textbox')).toHaveAttribute('id');
     expect(screen.queryByRole('textbox')).toHaveValue('')
-    fireEvent.change(screen.getByRole('textbox'), {
-      target: { value: inputValue}
-    });
+    userEvent.type(screen.getByRole('textbox'), inputValue, { enter: true});
+    // fireEvent.change(screen.getByRole('textbox'), {
+    //   target: { value: inputValue}
+    // });
     expect(screen.queryByRole('textbox')).toHaveValue(inputValue)
   });
 });
@@ -101,9 +114,57 @@ describe("events", () => {
     const { container} = render(<input type={'checkbox'} onChange={handleChange} /> )
     const checkboxElement = container.firstChild;
     expect(checkboxElement).not.toBeChecked();
-    fireEvent.click(checkboxElement);
+    // fireEvent.click(checkboxElement);
+    userEvent.click(checkboxElement);
     // проверяет что был вызван обработчик handleChange
     expect(handleChange).toHaveBeenCalledTimes(1);
     expect(checkboxElement).toBeChecked();
+    userEvent.click(checkboxElement, { ctrlKey: true });
+    expect(handleChange).toHaveBeenCalledTimes(2);
+    expect(checkboxElement).not.toBeChecked();
+  })
+})
+
+describe('Validate focus event', () => {
+  it('focus', () => {
+    const { getAllByTestId, getall} = render (
+      <div>
+        <input data-testid="element" type='input' />
+        <input data-testid="element" type={"checkbox"}/>
+        <input data-testid="element" type={"number"}/>
+      </div>
+    )
+    const [input, checkbox, number] = getAllByTestId('element');
+    expect(input).not.toHaveFocus();
+    userEvent.tab()
+    expect(input).toHaveFocus();
+    userEvent.tab()
+    expect(checkbox).toHaveFocus();
+    userEvent.tab();
+    expect(number).toHaveFocus();
+    userEvent.tab();
+    expect(number).not.toHaveFocus();
+    expect(input).toHaveFocus();
+  })
+})
+
+describe('Select', () => {
+  it('Select', () => {
+    const { selectOptions, getByRole, getByText} = render (
+      <select defaultValue={'null'}>
+        <option style={{ display:'none'}} value={'null'}>default</option>
+        <option value={"1"}>A</option>
+        <option value={"2"}>B</option>
+        <option value={"3"}>C</option>
+      </select>
+    )
+
+    expect(getByText('default')).toHaveStyle('display:none');
+    expect(getByText('A').selected).toBeFalsy();
+    expect(getByText('B').selected).toBeFalsy();
+    expect(getByText('C').selected).toBeFalsy();
+
+    userEvent.selectOptions(getByRole('combobox'), '2');
+    expect(getByText('B').selected).toBeTruthy();
   })
 })

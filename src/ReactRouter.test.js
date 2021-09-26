@@ -44,6 +44,7 @@ const RouterComponent = () => (
   </>
 );
 
+// эта обертка юзается на реальных проектах для сокращения кода при тестировании роутинга
 const renderWithRouter = (
   component,
   {
